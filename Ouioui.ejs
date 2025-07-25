@@ -1,0 +1,46 @@
+<canvas id="pointageChart" width="400" height="200"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const pointages = <%- JSON.stringify(dependencies.pointages) %>;
+  const users = <%- JSON.stringify(dependencies.users) %>;
+
+  // Grouper les pointages par user_id
+  const pointageParUser = {};
+
+  pointages.forEach(p => {
+    if (!pointageParUser[p.user_id]) {
+      pointageParUser[p.user_id] = 0;
+    }
+    pointageParUser[p.user_id]++;
+  });
+
+  // Labels = username
+  const labels = Object.keys(pointageParUser).map(userId => {
+    const user = users.find(u => u.id == userId);
+    return user ? user.username : `User ${userId}`;
+  });
+
+  const data = {
+    labels: labels,
+    datasets: [{
+      label: 'Nb de pointages',
+      data: Object.values(pointageParUser),
+      backgroundColor: 'rgba(54, 162, 235, 0.5)',
+      borderColor: 'rgba(54, 162, 235, 1)',
+      borderWidth: 1
+    }]
+  };
+
+  const config = {
+    type: 'bar',
+    data: data,
+    options: {
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  };
+
+  new Chart(document.getElementById('pointageChart'), config);
+</script>
