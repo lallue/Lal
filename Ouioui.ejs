@@ -1,25 +1,81 @@
-<script>
-  function copierTableau() {
-    let tableau = document.getElementById("monTableau");
-    let range = document.createRange();
-    range.selectNode(tableau);
+<table id="monTableau" class="table">
+  <thead>
+    <tr>
+      <th>Utilisateur</th>
+      <% for (let y = startYear; y <= endYear; y++) { %>
+        <% 
+          let moisDebut = (y === startYear) ? startMonth : 1;
+          let moisFin   = (y === endYear)   ? endMonth   : 12;
+        %>
+        <% for (let m = moisDebut; m <= moisFin; m++) { %>
+          <th>
+            <%= new Date(y, m - 1).toLocaleString("fr-FR", { month: "long" }) %> <%= y %>
+          </th>
+        <% } %>
+      <% } %>
+      <th>Total</th>
+      <th>Action</th>
+    </tr>
+  </thead>
 
-    let selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
+  <tbody>
+    <% users.forEach(user => { %>
+      <tr>
+        <td><%= user.username %></td>
+        <% let totalUser = 0; %>
+        <% for (let y = startYear; y <= endYear; y++) { %>
+          <% 
+            let moisDebut = (y === startYear) ? startMonth : 1;
+            let moisFin   = (y === endYear)   ? endMonth   : 12;
+          %>
+          <% for (let m = moisDebut; m <= moisFin; m++) { 
+               let pointage = dependencies.pointage.find(p => {
+                 let d = new Date(p.date);
+                 return p.users_id === user.id &&
+                        d.getFullYear() === parseInt(y) &&
+                        d.getMonth() + 1 === parseInt(m);
+               });
+               let heures = pointage ? pointage.heure : 0;
+               totalUser += heures;
+          %>
+            <td><%= heures || "-" %></td>
+          <% } %>
+        <% } %>
+        <td><%= totalUser %></td>
+        <td>
+          <a href="/user/<%= user.id %>?lotpi=<%= lotpi.id %>&year=<%= year %>" 
+             class="btn btn-sm btn-primary">Voir</a>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
 
-    try {
-      let reussi = document.execCommand("copy");
-      if (reussi) {
-        alert("✅ Tableau copié dans le presse-papier !");
-      } else {
-        alert("❌ Échec de la copie.");
-      }
-    } catch (err) {
-      alert("Erreur : " + err);
-    }
+  <tfoot>
+    <tr>
+      <th>Total</th>
+      <% 
+        let grandTotal = 0;
+        for (let y = startYear; y <= endYear; y++) {
+          let moisDebut = (y === startYear) ? startMonth : 1;
+          let moisFin   = (y === endYear)   ? endMonth   : 12;
 
-    // Nettoyer la sélection
-    selection.removeAllRanges();
-  }
-</script>
+          for (let m = moisDebut; m <= moisFin; m++) {
+            let sommeMois = dependencies.pointage
+              .filter(p => {
+                let d = new Date(p.date);
+                return d.getFullYear() === parseInt(y) && d.getMonth() + 1 === parseInt(m);
+              })
+              .reduce((acc, p) => acc + p.heure, 0);
+
+            grandTotal += sommeMois;
+      %>
+        <th><%= sommeMois %></th>
+      <% 
+          } 
+        } 
+      %>
+      <th><%= grandTotal %></th>
+      <th></th>
+    </tr>
+  </tfoot>
+</table>
