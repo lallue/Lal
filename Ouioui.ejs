@@ -1,38 +1,65 @@
-<tbody>
-  <% dependencies.user.forEach(user => { %>
-    <tr>
-      <td><%= user.username %></td>
-      <% 
-        let totalHeures = 0; // compteur pour chaque utilisateur
-      %>
-      <% for (let y = startYear; y <= endYear; y++) { %>
-        <% 
-          let moisDebut = (y === startYear) ? startMonth : 1;
-          let moisFin   = (y === endYear)   ? endMonth   : 12;
-        %>
-        <% for (let m = moisDebut; m <= moisFin; m++) { 
-             let pointPourMois = null;
-             dependencies.pointage.forEach(point => {
-               let d = new Date(point.date);
-               if (point.users_id === user.id && d.getMonth() + 1 === parseInt(m) && d.getFullYear() === parseInt(y)) {
-                 pointPourMois = point;
-               }
-             });
-        %>
-          <td>
-            <% if (pointPourMois) { %>
-              <%= pointPourMois.heure %>
-              <% totalHeures += pointPourMois.heure; %>
-            <% } else { %>
-              -
-            <% } %>
-          </td>
-        <% } %>
-      <% } %>
-      <td><strong><%= totalHeures %></strong></td>
-      <td>
-        <a href="/user/<%= user.id %>?lotpi=<%= lotpi.id %>&year=<%= year %>" class="btn btn-sm btn-primary">Voir</a>
-      </td>
-    </tr>
-  <% }) %>
-</tbody>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Export ChartJS</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div style="width: 600px; margin:auto;">
+    <canvas id="monChart"></canvas>
+    <div style="margin-top:15px; text-align:center;">
+      <button onclick="exportPNG()">Exporter en PNG</button>
+      <button onclick="exportPDF()">Exporter en PDF</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Données dynamiques passées par EJS ---
+    const labels = <%- JSON.stringify(mesLabels) %>;     // ex: ["Janvier", "Février", ...]
+    const dataHeures = <%- JSON.stringify(mesHeures) %>; // ex: [120, 150, 180, ...]
+
+    // --- Création du chart ---
+    const ctx = document.getElementById("monChart").getContext("2d");
+    const monChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "Heures travaillées",
+          data: dataHeures,
+          backgroundColor: "rgba(75, 192, 192, 0.6)"
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "top" },
+          title: { display: true, text: "Pointages par mois" }
+        }
+      }
+    });
+
+    // --- Export PNG ---
+    function exportPNG() {
+      let canvas = document.getElementById("monChart");
+      let link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = "graphique.png";
+      link.click();
+    }
+
+    // --- Export PDF ---
+    async function exportPDF() {
+      let canvas = document.getElementById("monChart");
+      let image = canvas.toDataURL("image/png", 1.0);
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF("landscape");
+      pdf.addImage(image, "PNG", 10, 10, 280, 150);
+      pdf.save("graphique.pdf");
+    }
+  </script>
+</body>
+</html>
