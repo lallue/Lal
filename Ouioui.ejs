@@ -1,46 +1,43 @@
-<canvas id="pointageChart" width="400" height="200"></canvas>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-  const pointages = <%- JSON.stringify(dependencies.pointages) %>;
-  const users = <%- JSON.stringify(dependencies.users) %>;
-
-  // Grouper les pointages par user_id
-  const pointageParUser = {};
-
-  pointages.forEach(p => {
-    if (!pointageParUser[p.user_id]) {
-      pointageParUser[p.user_id] = 0;
-    }
-    pointageParUser[p.user_id]++;
-  });
-
-  // Labels = username
-  const labels = Object.keys(pointageParUser).map(userId => {
-    const user = users.find(u => u.id == userId);
-    return user ? user.username : `User ${userId}`;
-  });
-
-  const data = {
-    labels: labels,
-    datasets: [{
-      label: 'Nb de pointages',
-      data: Object.values(pointageParUser),
-      backgroundColor: 'rgba(54, 162, 235, 0.5)',
-      borderColor: 'rgba(54, 162, 235, 1)',
-      borderWidth: 1
-    }]
-  };
-
-  const config = {
-    type: 'bar',
-    data: data,
-    options: {
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  };
-
-  new Chart(document.getElementById('pointageChart'), config);
-</script>
+<thead>
+  <tr>
+    <th>Utilisateur</th>
+    <% for (let y = startYear; y <= endYear; y++) { %>
+      <% 
+        // définir début/fin des mois pour cette année
+        let moisDebut = (y === startYear) ? startMonth : 1;
+        let moisFin   = (y === endYear)   ? endMonth   : 12;
+      %>
+      <% for (let m = moisDebut; m <= moisFin; m++) { %>
+        <th><%= new Date(y, m - 1).toLocaleString("fr-FR", { month: "long" }) %> <%= y %></th>
+      <% } %>
+    <% } %>
+    <th>Action</th>
+  </tr>
+</thead>
+<tbody>
+  <% dependencies.user.forEach(user => { %>
+    <tr>
+      <td><%= user.username %></td>
+      <% for (let y = startYear; y <= endYear; y++) { %>
+        <% 
+          let moisDebut = (y === startYear) ? startMonth : 1;
+          let moisFin   = (y === endYear)   ? endMonth   : 12;
+        %>
+        <% for (let m = moisDebut; m <= moisFin; m++) { 
+             let pointPourMois = null;
+             dependencies.pointage.forEach(point => {
+               let d = new Date(point.date);
+               if (point.users_id === user.id && d.getMonth() + 1 === parseInt(m) && d.getFullYear() === y) {
+                 pointPourMois = point;
+               }
+             });
+        %>
+          <td><%= pointPourMois ? pointPourMois.heure : "-" %></td>
+        <% } %>
+      <% } %>
+      <td>
+        <a href="/user/<%= user.id %>?lotpi=<%= lotpi.id %>&year=<%= year %>" class="btn btn-sm btn-primary">Voir</a>
+      </td>
+    </tr>
+  <% }) %>
+</tbody>
