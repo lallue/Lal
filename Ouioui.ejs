@@ -1,23 +1,10 @@
-<thead>
-  <tr>
-    <th>Utilisateur</th>
-    <% for (let y = startYear; y <= endYear; y++) { %>
-      <% 
-        // définir début/fin des mois pour cette année
-        let moisDebut = (y === startYear) ? startMonth : 1;
-        let moisFin   = (y === endYear)   ? endMonth   : 12;
-      %>
-      <% for (let m = moisDebut; m <= moisFin; m++) { %>
-        <th><%= new Date(y, m - 1).toLocaleString("fr-FR", { month: "long" }) %> <%= y %></th>
-      <% } %>
-    <% } %>
-    <th>Action</th>
-  </tr>
-</thead>
 <tbody>
   <% dependencies.user.forEach(user => { %>
     <tr>
       <td><%= user.username %></td>
+      <% 
+        let totalHeures = 0; // compteur pour chaque utilisateur
+      %>
       <% for (let y = startYear; y <= endYear; y++) { %>
         <% 
           let moisDebut = (y === startYear) ? startMonth : 1;
@@ -27,14 +14,22 @@
              let pointPourMois = null;
              dependencies.pointage.forEach(point => {
                let d = new Date(point.date);
-               if (point.users_id === user.id && d.getMonth() + 1 === parseInt(m) && d.getFullYear() === y) {
+               if (point.users_id === user.id && d.getMonth() + 1 === parseInt(m) && d.getFullYear() === parseInt(y)) {
                  pointPourMois = point;
                }
              });
         %>
-          <td><%= pointPourMois ? pointPourMois.heure : "-" %></td>
+          <td>
+            <% if (pointPourMois) { %>
+              <%= pointPourMois.heure %>
+              <% totalHeures += pointPourMois.heure; %>
+            <% } else { %>
+              -
+            <% } %>
+          </td>
         <% } %>
       <% } %>
+      <td><strong><%= totalHeures %></strong></td>
       <td>
         <a href="/user/<%= user.id %>?lotpi=<%= lotpi.id %>&year=<%= year %>" class="btn btn-sm btn-primary">Voir</a>
       </td>
