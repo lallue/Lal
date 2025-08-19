@@ -1,34 +1,25 @@
-<tbody>
-  <% users.forEach(user => { %>
-    <tr>
-      <td><%= user.username %></td>
-      <% for (let y = startYear; y <= endYear; y++) { %>
-        <% 
-          let moisDebut = (y === startYear) ? startMonth : 1;
-          let moisFin   = (y === endYear)   ? endMonth   : 12;
-        %>
-        <% for (let m = moisDebut; m <= moisFin; m++) { 
-             let pointage = dependencies.pointage.find(p => {
-               let d = new Date(p.date);
-               return p.users_id === user.id &&
-                      d.getFullYear() === parseInt(y) &&
-                      d.getMonth() + 1 === parseInt(m);
-             });
-        %>
-          <td><%= pointage ? pointage.heure : "-" %></td>
-        <% } %>
-      <% } %>
-      <td>
-        <%= dependencies.pointage
-              .filter(p => p.users_id === user.id &&
-                           new Date(p.date).getFullYear() >= startYear &&
-                           new Date(p.date).getFullYear() <= endYear)
-              .reduce((acc, p) => acc + p.heure, 0) %>
-      </td>
-      <td>
-        <a href="/user/<%= user.id %>?lotpi=<%= lotpi.id %>&year=<%= year %>" 
-           class="btn btn-sm btn-primary">Voir</a>
-      </td>
-    </tr>
-  <% }) %>
-</tbody>
+<script>
+  function copierTableau() {
+    let tableau = document.getElementById("monTableau");
+    let range = document.createRange();
+    range.selectNode(tableau);
+
+    let selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    try {
+      let reussi = document.execCommand("copy");
+      if (reussi) {
+        alert("✅ Tableau copié dans le presse-papier !");
+      } else {
+        alert("❌ Échec de la copie.");
+      }
+    } catch (err) {
+      alert("Erreur : " + err);
+    }
+
+    // Nettoyer la sélection
+    selection.removeAllRanges();
+  }
+</script>
