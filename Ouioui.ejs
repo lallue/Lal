@@ -1,23 +1,92 @@
-{
-  label: 'Budget cumul',
-  data: budgetCumul,
-  type: 'line',
-  stepped: true,
-  borderColor: (ctx) => {
-    if (!ctx.p0 || !ctx.p1) return 'green'; // couleur par défaut si segment non défini
+<script>
+  // labels déjà construits chez toi (janvier 2024, février 2024, …)
+  const budgetParMois = new Array(labels.length).fill(0);
 
-    const i = ctx.p0DataIndex;
-    const startVal = ctx.p0.parsed.y;
-    const endVal = ctx.p1.parsed.y;
+  <% dependencies.budget.forEach(function (element) { %>
+    (function () {
+      const start  = new Date("<%= element.dateStart %>");
+      const end    = new Date("<%= element.dateEnd %>");
+      const total  = Math.round(<%= element.heure %>); // on force un entier
 
-    // Comparaison avec le budgetCumul[i] ou i+1 si tu veux
-    const budgetStart = budgetCumul[i] ?? 0;      // sécurité si undefined
-    const budgetEnd = budgetCumul[i + 1] ?? 0;
+      const startLabel = `${moisLabels[start.getMonth() + 1]} ${start.getFullYear()}`;
+      const endLabel   = `${moisLabels[end.getMonth() + 1]} ${end.getFullYear()}`;
 
-    if (startVal > budgetStart || endVal > budgetEnd) {
-      return 'red';
+      const si = labels.indexOf(startLabel);
+      const ei = labels.indexOf(endLabel);
+      if (si < 0 || ei < 0 || ei < si) return;
+
+      const nbMois = (ei - si + 1);
+      const base   = Math.floor(total / nbMois); // part entière
+      let reste    = total % nbMois;             // reste à répartir
+
+      for (let i = si; i <= ei; i++) {
+        // on ajoute 1 aux "reste" premiers mois
+        budgetParMois[i] += base + (reste > 0 ? 1 : 0);
+        if (reste > 0) reste--;
+      }
+    })();
+  <% }) %>
+
+  // cumul (escalier) du budget
+  const budgetCumul = [];
+  budgetParMois.reduce((acc, v, i) => (budgetCumul[i] = acc + v), 0);
+</script>
+
+<script>
+  // data = tes heures par mois (barres)
+  // dataCumul = cumul des heures consommées (tu l’as déjà)
+  // budgetCumul = calculé plus haut
+
+  const chart = new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        // 1) Histogramme (heures du mois) – tu peux garder ta coloration par barre
+        {
+          type: 'bar',
+          label: 'Heures pointées',
+          data: data,
+          backgroundColor: data.map((_, i) =>
+            (dataCumul[i] > (budgetCumul[i] ?? Infinity)) ? 'red' : '#007bff'
+          )
+        },
+
+        // 2) Courbe cumul DES HEURES avec tronçons colorés dynamiquement
+        {
+          type: 'line',
+          label: 'Heures cumulées',
+          data: dataCumul,
+          stepped: true,
+          fill: false,
+          borderWidth: 2,
+          // 👇 couleur par tronçon
+          segment: {
+            borderColor: (ctx) => {
+              const i  = ctx.p0DataIndex; // début du segment
+              const y0 = ctx.p0.parsed.y;
+              const y1 = ctx.p1.parsed.y;
+              const b0 = budgetCumul[i] ?? Number.POSITIVE_INFINITY;
+              const b1 = budgetCumul[i + 1] ?? Number.POSITIVE_INFINITY;
+              // si l’un des 2 points du segment est au-dessus du budget -> rouge
+              return (y0 > b0 || y1 > b1) ? 'red' : 'green';
+            }
+          }
+        },
+
+        // 3) Courbe cumul DU BUDGET (référence)
+        {
+          type: 'line',
+          label: 'Budget cumul',
+          data: budgetCumul,
+          stepped: true,
+          fill: false,
+          borderWidth: 2,
+          borderColor: '#555',
+        }
+      ]
+    },
+    options: {
+      scales: { y: { beginAtZero: true } }
     }
-    return 'green';
-  },
-  fill: false
-}
+  });
+</script>
