@@ -1,81 +1,73 @@
-<table id="monTableau" class="table">
-  <thead>
-    <tr>
-      <th>Utilisateur</th>
-      <% for (let y = startYear; y <= endYear; y++) { %>
-        <% 
-          let moisDebut = (y === startYear) ? startMonth : 1;
-          let moisFin   = (y === endYear)   ? endMonth   : 12;
-        %>
-        <% for (let m = moisDebut; m <= moisFin; m++) { %>
-          <th>
-            <%= new Date(y, m - 1).toLocaleString("fr-FR", { month: "long" }) %> <%= y %>
-          </th>
-        <% } %>
-      <% } %>
-      <th>Total</th>
-      <th>Action</th>
-    </tr>
-  </thead>
+<canvas id="budgetChart"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // récupérer budgets depuis le serveur
+  const budgets = <%- JSON.stringify(budgets) %>;
 
-  <tbody>
-    <% users.forEach(user => { %>
-      <tr>
-        <td><%= user.username %></td>
-        <% let totalUser = 0; %>
-        <% for (let y = startYear; y <= endYear; y++) { %>
-          <% 
-            let moisDebut = (y === startYear) ? startMonth : 1;
-            let moisFin   = (y === endYear)   ? endMonth   : 12;
-          %>
-          <% for (let m = moisDebut; m <= moisFin; m++) { 
-               let pointage = dependencies.pointage.find(p => {
-                 let d = new Date(p.date);
-                 return p.users_id === user.id &&
-                        d.getFullYear() === parseInt(y) &&
-                        d.getMonth() + 1 === parseInt(m);
-               });
-               let heures = pointage ? pointage.heure : 0;
-               totalUser += heures;
-          %>
-            <td><%= heures || "-" %></td>
-          <% } %>
-        <% } %>
-        <td><%= totalUser %></td>
-        <td>
-          <a href="/user/<%= user.id %>?lotpi=<%= lotpi.id %>&year=<%= year %>" 
-             class="btn btn-sm btn-primary">Voir</a>
-        </td>
-      </tr>
-    <% }) %>
-  </tbody>
+  function buildChartData(budgets) {
+    // transformer budgets en {start, end, hours}
+    const data = budgets.map(b => ({
+      start: new Date(b.dateStart),
+      end: new Date(b.dateEnd),
+      hours: b.heure
+    }));
 
-  <tfoot>
-    <tr>
-      <th>Total</th>
-      <% 
-        let grandTotal = 0;
-        for (let y = startYear; y <= endYear; y++) {
-          let moisDebut = (y === startYear) ? startMonth : 1;
-          let moisFin   = (y === endYear)   ? endMonth   : 12;
+    // extraire toutes les dates importantes
+    let dates = [];
+    data.forEach(b => {
+      dates.push(b.start);
+      dates.push(b.end);
+    });
+    dates = [...new Set(dates.map(d => d.getTime()))]
+      .sort((a, b) => a - b)
+      .map(t => new Date(t));
 
-          for (let m = moisDebut; m <= moisFin; m++) {
-            let sommeMois = dependencies.pointage
-              .filter(p => {
-                let d = new Date(p.date);
-                return d.getFullYear() === parseInt(y) && d.getMonth() + 1 === parseInt(m);
-              })
-              .reduce((acc, p) => acc + p.heure, 0);
+    // calculer évolution cumulative
+    let chartData = [];
+    let cumulative = 0;
 
-            grandTotal += sommeMois;
-      %>
-        <th><%= sommeMois %></th>
-      <% 
-          } 
-        } 
-      %>
-      <th><%= grandTotal %></th>
-      <th></th>
-    </tr>
-  </tfoot>
-</table>
+    for (let i = 0; i < dates.length - 1; i++) {
+      const start = dates[i];
+      const end = dates[i + 1];
+      const deltaDays = (end - start) / (1000 * 60 * 60 * 24);
+
+      // budgets actifs sur ce segment
+      const active = data.filter(b => b.start <= start && b.end >= end);
+
+      // taux horaire/jour cumulé
+      let rate = 0;
+      active.forEach(b => {
+        const durationDays = (b.end - b.start) / (1000 * 60 * 60 * 24);
+        rate += b.hours / durationDays;
+      });
+
+      chartData.push({ x: start.toISOString().split("T")[0], y: cumulative });
+      cumulative += rate * deltaDays;
+      chartData.push({ x: end.toISOString().split("T")[0], y: cumulative });
+    }
+
+    return chartData;
+  }
+
+  const chartData = buildChartData(budgets);
+
+  new Chart(document.getElementById("budgetChart"), {
+    type: "line",
+    data: {
+      datasets: [{
+        label: "Budgets cumulés",
+        data: chartData,
+        stepped: true,
+        borderColor: "blue",
+        fill: false
+      }]
+    },
+    options: {
+      parsing: { xAxisKey: "x", yAxisKey: "y" },
+      scales: {
+        x: { type: "time", time: { unit: "day" } },
+        y: { beginAtZero: true }
+      }
+    }
+  });
+</script>
