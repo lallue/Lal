@@ -1,34 +1,22 @@
-// tableau avec 0 pour chaque mois
-const budgetParMois = new Array(labels.length).fill(0);
+// On sépare en 2 datasets
+const budgetOk = budgetCumul.map((val, i) => (val <= budgetMaxValue ? val : null));
+const budgetDepasse = budgetCumul.map((val, i) => (val > budgetMaxValue ? val : null));
 
-// Répartition des heures par mois pour chaque budget
-<% dependencies.budget.forEach(function(element) { %>
-  (function() {
-    const start = new Date("<%= element.dateStart %>");
-    const end   = new Date("<%= element.dateEnd %>");
-    const heures = <%= element.heure %>;
-
-    const startLabel = `${moisLabels[start.getMonth() + 1]} ${start.getFullYear()}`;
-    const endLabel   = `${moisLabels[end.getMonth() + 1]} ${end.getFullYear()}`;
-
-    const startIndex = labels.indexOf(startLabel);
-    const endIndex   = labels.indexOf(endLabel);
-
-    if (startIndex >= 0 && endIndex >= 0) {
-      const nbMois = endIndex - startIndex + 1;
-      const heuresParMoisBudget = heures / nbMois;
-
-      for (let i = startIndex; i <= endIndex; i++) {
-        budgetParMois[i] += heuresParMoisBudget;
-      }
-    }
-  })();
-<% }) %>
-
-// Transformer en cumul (escalier)
-const budgetCumul = [];
-budgetParMois.reduce((acc, val, i) => {
-  const total = acc + val;
-  budgetCumul[i] = total;
-  return total;
-}, 0);
+datasets: [
+  {
+    label: 'Budget cumul OK',
+    data: budgetOk,
+    type: 'line',
+    borderColor: 'green',
+    stepped: true,
+    fill: false
+  },
+  {
+    label: 'Budget dépassé',
+    data: budgetDepasse,
+    type: 'line',
+    borderColor: 'red',
+    stepped: true,
+    fill: false
+  }
+]
