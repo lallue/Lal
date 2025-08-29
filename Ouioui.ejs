@@ -1,56 +1,51 @@
 <canvas id="budgetChart"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // récupérer budgets depuis le serveur
-  const budgets = <%- JSON.stringify(budgets) %>;
-
-  function buildChartData(budgets) {
-    // transformer budgets en {start, end, hours}
-    const data = budgets.map(b => ({
-      start: new Date(b.dateStart),
-      end: new Date(b.dateEnd),
-      hours: b.heure
-    }));
-
-    // extraire toutes les dates importantes
-    let dates = [];
-    data.forEach(b => {
-      dates.push(b.start);
-      dates.push(b.end);
+  // récupérer tes budgets côté client
+  const budgets = [];
+  <% dependencies.budget.forEach(function(element) { %>
+    budgets.push({
+      start: new Date("<%= element.dateStart %>"),
+      end: new Date("<%= element.dateEnd %>"),
+      hours: <%= element.heure %>
     });
-    dates = [...new Set(dates.map(d => d.getTime()))]
-      .sort((a, b) => a - b)
-      .map(t => new Date(t));
+  <% }) %>
 
-    // calculer évolution cumulative
-    let chartData = [];
-    let cumulative = 0;
+  // maintenant on génère les points pour la courbe
+  let dates = [];
+  budgets.forEach(b => {
+    dates.push(b.start);
+    dates.push(b.end);
+  });
 
-    for (let i = 0; i < dates.length - 1; i++) {
-      const start = dates[i];
-      const end = dates[i + 1];
-      const deltaDays = (end - start) / (1000 * 60 * 60 * 24);
+  dates = [...new Set(dates.map(d => d.getTime()))]
+    .sort((a, b) => a - b)
+    .map(t => new Date(t));
 
-      // budgets actifs sur ce segment
-      const active = data.filter(b => b.start <= start && b.end >= end);
+  let chartData = [];
+  let cumulative = 0;
 
-      // taux horaire/jour cumulé
-      let rate = 0;
-      active.forEach(b => {
-        const durationDays = (b.end - b.start) / (1000 * 60 * 60 * 24);
-        rate += b.hours / durationDays;
-      });
+  for (let i = 0; i < dates.length - 1; i++) {
+    const start = dates[i];
+    const end = dates[i + 1];
+    const deltaDays = (end - start) / (1000 * 60 * 60 * 24);
 
-      chartData.push({ x: start.toISOString().split("T")[0], y: cumulative });
-      cumulative += rate * deltaDays;
-      chartData.push({ x: end.toISOString().split("T")[0], y: cumulative });
-    }
+    // budgets actifs pendant cet intervalle
+    const active = budgets.filter(b => b.start <= start && b.end >= end);
 
-    return chartData;
+    // calcul du taux d'accumulation (heures/jour)
+    let rate = 0;
+    active.forEach(b => {
+      const durationDays = (b.end - b.start) / (1000 * 60 * 60 * 24);
+      rate += b.hours / durationDays;
+    });
+
+    chartData.push({ x: start.toISOString().split("T")[0], y: cumulative });
+    cumulative += rate * deltaDays;
+    chartData.push({ x: end.toISOString().split("T")[0], y: cumulative });
   }
 
-  const chartData = buildChartData(budgets);
-
+  // affichage du graphique
   new Chart(document.getElementById("budgetChart"), {
     type: "line",
     data: {
