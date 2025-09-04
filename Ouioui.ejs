@@ -1,49 +1,56 @@
 const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const csv = require("csv-parser"); // ton parser
+const { insertRowInDB } = require("../services/dbService"); // exemple, ton service d'insert
 
-// Fonction pour exécuter ton script Python
-function runPython(inputFile) {
-  return new Promise((resolve, reject) => {
-    const inputPath = path.resolve(inputFile); // chemin absolu du xls
-    const inputDir = path.dirname(inputPath);
-    const baseName = path.basename(inputPath, path.extname(inputPath)); // nom sans extension
+exports.handleUpload = async (req, res) => {
+  try {
+    const xlsPath = req.file.path;
+    const baseName = path.basename(xlsPath, path.extname(xlsPath));
     const csvName = `${baseName}.csv`;
-    const csvPath = path.join(inputDir, csvName);
+    const csvPath = path.join(path.dirname(xlsPath), csvName);
 
-    // Commande python
-    const cmd = `python ./b.py "${inputPath}" "Resultat"`;
-
-    exec(cmd, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Erreur: ${error.message}`);
-        return reject(error);
-      }
-      if (stderr) {
-        console.error(`stderr: ${stderr}`);
-      }
-
-      // Maintenant on déplace le fichier généré
-      const outputDir = path.resolve("upload/temp");
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-      }
-      const destPath = path.join(outputDir, csvName);
-
-      fs.rename(csvPath, destPath, (err) => {
-        if (err) return reject(err);
-        resolve(destPath);
+    // --- Étape 1 : exécuter script python ---
+    await new Promise((resolve, reject) => {
+      const cmd = `python ./b.py "${xlsPath}" "Resultat"`;
+      exec(cmd, (error, stdout, stderr) => {
+        if (error) return reject(error);
+        if (stderr) console.error("stderr:", stderr);
+        resolve();
       });
     });
-  });
-}
 
-// Exemple d’utilisation
-(async () => {
-  try {
-    const resultFile = await runPython("./a.xls");
-    console.log("Fichier déplacé vers :", resultFile);
+    // --- Étape 2 : déplacer le CSV ---
+    const destDir = path.resolve("upload/temp");
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+    const destPath = path.join(destDir, csvName);
+    fs.renameSync(csvPath, destPath);
+
+    // --- Étape 3 : parser le CSV avec stream ---
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(destPath)
+        .pipe(csv()) // chaque ligne est un objet JS
+        .on("data", async (row) => {
+          try {
+            // ici tu insères en BDD (ligne par ligne ou batch)
+            await insertRowInDB(row);
+          } catch (err) {
+            console.error("Erreur d’insertion:", err);
+          }
+        })
+        .on("end", () => {
+          console.log("CSV entièrement parsé et inséré en BDD ✅");
+          resolve();
+        })
+        .on("error", (err) => reject(err));
+    });
+
+    res.json({ success: true, file: destPath });
   } catch (err) {
-    console.error("Erreur :", err);
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
   }
-})();
+};
