@@ -1,39 +1,49 @@
-app.post('/timesheet/import', async (req, res) => {
-  try {
-    const rows = req.body; // ton fichier complet (12 mois par ex.)
-    const results = [];
+const { exec } = require("child_process");
+const path = require("path");
+const fs = require("fs");
 
-    for (const row of rows) {
-      const { userId, otpId, year, moisNum, hours } = row;
+// Fonction pour exécuter ton script Python
+function runPython(inputFile) {
+  return new Promise((resolve, reject) => {
+    const inputPath = path.resolve(inputFile); // chemin absolu du xls
+    const inputDir = path.dirname(inputPath);
+    const baseName = path.basename(inputPath, path.extname(inputPath)); // nom sans extension
+    const csvName = `${baseName}.csv`;
+    const csvPath = path.join(inputDir, csvName);
 
-      // construit toujours ta date à minuit
-      const dateStr = `${parseInt(year)}-${String(moisNum).padStart(2,'0')}-01T00:00:00`;
-      const center = new Date(dateStr);
+    // Commande python
+    const cmd = `python ./b.py "${inputPath}" "Resultat"`;
 
-      // vérifie si cette (userId, otpId, date) existe déjà
-      const exists = await Timesheet.findOne({
-        where: { userId, otpId, workedAt: center },
-      });
-
-      if (!exists) {
-        // crée uniquement si absent
-        const created = await Timesheet.create({
-          userId,
-          otpId,
-          workedAt: center,
-          hours,
-        });
-        results.push({ mode: 'created', id: created.id, workedAt: created.workedAt });
-      } else {
-        // sinon on ne touche pas
-        results.push({ mode: 'skipped', workedAt: exists.workedAt });
+    exec(cmd, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Erreur: ${error.message}`);
+        return reject(error);
       }
-    }
+      if (stderr) {
+        console.error(`stderr: ${stderr}`);
+      }
 
-    return res.json(results);
+      // Maintenant on déplace le fichier généré
+      const outputDir = path.resolve("upload/temp");
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+      const destPath = path.join(outputDir, csvName);
 
+      fs.rename(csvPath, destPath, (err) => {
+        if (err) return reject(err);
+        resolve(destPath);
+      });
+    });
+  });
+}
+
+// Exemple d’utilisation
+(async () => {
+  try {
+    const resultFile = await runPython("./a.xls");
+    console.log("Fichier déplacé vers :", resultFile);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal_error', details: err.message });
+    console.error("Erreur :", err);
   }
-});
+})();
