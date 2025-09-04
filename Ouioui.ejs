@@ -36,48 +36,4 @@ app.post('/timesheet/import', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'internal_error', details: err.message });
   }
-});            budgetParMois[i] += base + (reste > 0 ? 1 : 0);
-            if (reste > 0) reste--;
-          }
-        } else if (mode === 2) {
-          // ajout direct dès le mois de début
-          budgetParMois[si] += b.hours;
-        }
-      }
-    });
-
-    // cumul
-    const budgetCumul = [];
-    budgetParMois.reduce((acc, v, i) => (budgetCumul[i] = acc + v), 0);
-    return budgetCumul;
-  }
-
-  // initialisation en mode 1
-  let currentMode = 1;
-  const ctx = document.getElementById("myChart").getContext("2d");
-  let chart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: labels,
-      datasets: [{
-        label: "Budget cumulatif",
-        data: buildBudgetCumul(currentMode),
-        stepped: true,
-        borderColor: "green",
-        fill: false
-      }]
-    },
-    options: {
-      scales: { y: { beginAtZero: true } }
-    }
-  });
-
-  // toggle bouton
-  document.getElementById("toggleMode").addEventListener("click", () => {
-    currentMode = currentMode === 1 ? 2 : 1;
-    document.getElementById("toggleMode").innerText = "Mode " + currentMode;
-
-    chart.data.datasets[0].data = buildBudgetCumul(currentMode);
-    chart.update();
-  });
-</script>
+});
