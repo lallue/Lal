@@ -1,40 +1,42 @@
-<button id="toggleMode">Mode 1</button>
-<canvas id="myChart"></canvas>
+app.post('/timesheet/import', async (req, res) => {
+  try {
+    const rows = req.body; // ton fichier complet (12 mois par ex.)
+    const results = [];
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-  const budgets = [];
-  <% dependencies.budget.forEach(function (element) { %>
-    budgets.push({
-      start: new Date("<%= element.dateStart %>"),
-      end: new Date("<%= element.dateEnd %>"),
-      hours: <%= element.heure %>
-    });
-  <% }) %>;
+    for (const row of rows) {
+      const { userId, otpId, year, moisNum, hours } = row;
 
-  // labels déjà créés chez toi : ["janvier 2024", "février 2024", ...]
-  const labels = [...];  
+      // construit toujours ta date à minuit
+      const dateStr = `${parseInt(year)}-${String(moisNum).padStart(2,'0')}-01T00:00:00`;
+      const center = new Date(dateStr);
 
-  // fonction pour calculer budget cumul en mode 1 ou 2
-  function buildBudgetCumul(mode) {
-    const budgetParMois = new Array(labels.length).fill(0);
+      // vérifie si cette (userId, otpId, date) existe déjà
+      const exists = await Timesheet.findOne({
+        where: { userId, otpId, workedAt: center },
+      });
 
-    budgets.forEach(b => {
-      const startLabel = `${moisLabels[b.start.getMonth() + 1]} ${b.start.getFullYear()}`;
-      const endLabel   = `${moisLabels[b.end.getMonth() + 1]} ${b.end.getFullYear()}`;
+      if (!exists) {
+        // crée uniquement si absent
+        const created = await Timesheet.create({
+          userId,
+          otpId,
+          workedAt: center,
+          hours,
+        });
+        results.push({ mode: 'created', id: created.id, workedAt: created.workedAt });
+      } else {
+        // sinon on ne touche pas
+        results.push({ mode: 'skipped', workedAt: exists.workedAt });
+      }
+    }
 
-      const si = labels.indexOf(startLabel);
-      const ei = labels.indexOf(endLabel);
+    return res.json(results);
 
-      if (si >= 0 && ei >= 0) {
-        if (mode === 1) {
-          // répartition par mois (entiers)
-          const nbMois = (ei - si + 1);
-          const base   = Math.floor(b.hours / nbMois);
-          let reste    = b.hours % nbMois;
-
-          for (let i = si; i <= ei; i++) {
-            budgetParMois[i] += base + (reste > 0 ? 1 : 0);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'internal_error', details: err.message });
+  }
+});            budgetParMois[i] += base + (reste > 0 ? 1 : 0);
             if (reste > 0) reste--;
           }
         } else if (mode === 2) {
