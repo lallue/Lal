@@ -54,3 +54,23 @@ exports.handleUpload = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+const multer = require("multer");
+const path = require("path");
+
+// Config stockage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "upload/"); // dossier où sauvegarder
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);     // .xls ou .xlsx
+    const base = path.basename(file.originalname, ext); // nom sans extension
+    cb(null, `${base}-${Date.now()}${ext}`);         // ex: rapport-1693832923.xlsx
+  }
+});
+
+// Initialisation
+const upload = multer({ storage });
+
+// Dans ta route Express
+router.post("/upload", upload.single("file"), uploadController.handleUpload);
